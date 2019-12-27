@@ -4,6 +4,7 @@ var jwt = require('jsonwebtoken');
 var async = require("async");
 var nodemailer = require("nodemailer");
 var crypto = require("crypto");
+var flash   = require('req-flash');
 
 //Require node localStorage npm
 if (typeof localStorage === "undefined" || localStorage === null) {
@@ -84,37 +85,36 @@ router.get('/forget',function(req,res,next){
 });
 
 
-router.post('/forget', function(req, res, next) {
+router.post('/forget',function(req,res,next){
   async.waterfall([
-    function(done) {
-      crypto.randomBytes(20, function(err, buf) {
+    function(done){
+      crypto.randomBytes(20,function(err,buf){
         var token = buf.toString('hex');
-        done(err, token);
+        done(err,token);
       });
     },
-    function(token, done) {
-      singupModel.findOne({ email: req.body.email }, function(err, user) {
-        if (!user) {
+    function(token,done){
+      singupModel.findOne({email:req.body.email},function(err,user){
+        if(!user){
+          console.log('Error No account with the email Id');
           // req.flash('error', 'No account with that email address exists.');
-          console.log('Inavlid Email');
-          // return res.render('/forget',{title:'Password_Reset',msg:'Invalid Email ID'});
           return res.redirect('/forget');
         }
 
         user.resetPasswordToken = token;
-        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+        user.resetPasswordExpires = Date.now() +3600000;
 
-        singupModel.save(function(err) {
-          done(err, token, user);
+        user.save(function(err){
+          done(err,token,user);
         });
       });
     },
-    function(token, user, done) {
+    function(token,user,done){
       var smtpTransport = nodemailer.createTransport({
         service: 'Gmail', 
         auth: {
           user: 'ankit19351@gmail.com',
-          pass: process.env.GMAILPW
+          pass: 'enter your password'
         }
       });
       var mailOptions = {
@@ -128,16 +128,58 @@ router.post('/forget', function(req, res, next) {
       };
       smtpTransport.sendMail(mailOptions, function(err) {
         console.log('mail sent');
-        req.flash('success', 'An e-mail has been sent to ' + user.email + ' with further instructions.');
+        // alert("link send to register Email");
+        // req.flash('success', 'An e-mail has been sent to ' + user.email + ' with further instructions.');
         done(err, 'done');
       });
     }
-  ], function(err) {
-    if (err) return next(err);
+  ],function(err){
+    if(err) return next(err);
     res.redirect('/forget');
   });
 });
 
+router.get('/reset/:token', function(req, res) {
+  singupModel.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }, function(err, user) {
+    if (!user) {
+      // req.flash('error', 'Password reset token is invalid or has expired.');
+      return res.redirect('/forgot');
+    }
+    res.render('reset', {token: req.params.token,title:'Password_Reset'});
+  });
+});
+
+router.post('/reset/:token', function(req, res) {
+  async.waterfall([
+    function(done) {
+      singupModel.findOne({ resetPasswordToken: req.params.token, resetPasswordExpires: { $gt: Date.now() } }, function(err, user) {
+        if (!user) {
+          console.log('error Password reset token is invalid or has expired.');
+          return res.redirect('back');
+        }else{
+          var user_id = user._id;
+          if(req.body.password === req.body.confirm) {
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpires = undefined;
+            var update = singupModel.findByIdAndUpdate(user_id,{password:req.body.password});
+            update.exec(function(err,data){
+              if(err) throw err;
+              return res.redirect('/login');
+            })
+          } 
+          else {
+              console.log("error Passwords do not match.");
+              return res.redirect('back');
+          }
+        }
+        
+      });
+    },
+  
+  ], function(err) {
+    res.redirect('/');
+  });
+});
 
 
 

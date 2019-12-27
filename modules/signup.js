@@ -1,5 +1,5 @@
 var mongoose = require('mongoose');
-
+var passportLocalMongoose=require("passport-local-mongoose");
 
 bodyparser = require("body-parser");
 mongoose.set('useNewUrlParser', true);
@@ -19,7 +19,7 @@ var signupSchema = new mongoose.Schema({
     resetPasswordExpires: Date,
     
 });
-
+signupSchema.plugin(passportLocalMongoose);
 var signupModel = mongoose.model('login',signupSchema);
 
 module.exports=signupModel;
