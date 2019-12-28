@@ -98,7 +98,7 @@ router.post('/forget',function(req,res,next){
         if(!user){
           console.log('Error No account with the email Id');
           // req.flash('error', 'No account with that email address exists.');
-          return res.redirect('/forget');
+          return res.redirect('/signup');
         }
 
         user.resetPasswordToken = token;
